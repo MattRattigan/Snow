@@ -2,12 +2,17 @@ package dbSnow
 
 import (
 	"Snow/snowUser"
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"log"
-	"os"
+	"sync"
+)
+
+var (
+	once            sync.Once
+	dbStoreInstance *DbStore
 )
 
 type DbStore struct {
@@ -15,123 +20,183 @@ type DbStore struct {
 }
 
 func InitDB(filepath string) *DbStore {
-	dbSnow, err := sql.Open("sqlite3", filepath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	once.Do(func() {
+		dbSnow, err := sql.Open("sqlite3", filepath)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	createTableSQL := `CREATE TABLE IF NOT EXISTS users (
-        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        "username" TEXT NOT NULL UNIQUE,
-        "password_hash" BLOB NOT NULL,
-        "UUID" TEXT 
-    );`
+		createTableSQL := `
+			CREATE TABLE IF NOT EXISTS users (
+				"id" BLOB PRIMARY KEY,
+				"username" TEXT NOT NULL UNIQUE,
+				"password_hash" BLOB NOT NULL
+			);`
 
-	_, err = dbSnow.Exec(createTableSQL)
+		_, err = dbSnow.Exec(createTableSQL)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return &DbStore{dbSnow}
+		dbStoreInstance = &DbStore{dbSnow}
+	})
+	return dbStoreInstance
 }
 
-func (db *DbStore) CreateUser(username string, passwordHash []byte) error {
-	idUsername, exists, err := db.checkUsername(username)
+func (db *DbStore) GetUser(username string, password []byte) (snowUser.User, error) {
+	// Get ID and password from database, check password and populate the struct
 
-	if err != nil && exists == false {
-		log.Fatal("An error has occurred checking through the database: ", err)
+	// If user is in database procede to getUser if not create user
+	if ok, err := db.selectUsernameByUsername(username); err != nil {
+		return snowUser.User{}, err
+	} else if !ok {
+		err = db.createUser2(username, password)
+		if err != nil {
+			return snowUser.User{}, err
+		}
 	}
 
-	if err == nil && exists == false {
-		log.Fatal("Username was not found")
+	id, err := db.getUserIDByUsername(username)
+
+	if err != nil {
+		return snowUser.User{}, nil
 	}
 
-	isTrue, err := db.checkPasswordHash(idUsername, passwordHash)
+	// Get User password from database
+	storedPwd, err := db.getPasswordHashByID(id)
 
-	if isTrue == false && err == nil {
-		log.Fatal("User ID not found")
+	if err != nil {
+		return snowUser.User{}, err
 	}
 
-	if isTrue == false && err != nil {
-		log.Fatal("An error has occurred checking through the database: ")
+	err = isPassword(password, storedPwd)
+	if err != nil {
+		return snowUser.User{}, err
 	}
 
-	if isTrue == false {
-		log.Fatal("Incorrect Password!")
+	// Grab fileDir interface to build SnowUser struct
+	fileDir, err := snowUser.BuildFileDir()
+	if err != nil {
+		return snowUser.User{}, err
 	}
 
-	insertUserSQL := `INSERT INTO users (username, password_hash) VALUES (?, ?)`
+	fileDir = snowUser.AppendUUID(fileDir, *id)
+
+	return snowUser.User{
+		Username:   username,
+		Passpharse: storedPwd,
+		FileDir:    fileDir,
+	}, nil
+
+}
+
+func (db *DbStore) createUser2(username string, password []byte) error {
+	var err error
+	var uuid, createdHash []byte
+
+	// Create UUID for the User
+	uuid, err = snowUser.CreateFileUUID().ToBytesInplace(uuid)
+
+	if err != nil {
+		return err
+	}
+
+	// Create the Hash
+	createdHash, err = createHash(password)
+
+	if err != nil {
+		return err
+	}
+
+	// Insert into the database the username, password "hashed" and UUID as id
+	insertUserSQL := `INSERT INTO users (username, password_hash, id) VALUES (?, ?, ?);`
 
 	statement, err := db.Prepare(insertUserSQL)
 	if err != nil {
 		return fmt.Errorf("at insertion and err has occured: %s", err) // TODO: Check for error
 	}
+
 	defer statement.Close()
 
-	_, err = statement.Exec(username, passwordHash) // TODO: Create function for fileIndicator
+	_, err = statement.Exec(username, createdHash, uuid)
+
 	return err
 }
 
-func (db *DbStore) GetUser(username string, passwordHash []byte) (*snowUser.User, error) {
-	queryUserSQL := `SELECT username, password_hash FROM users WHERE username = ?`
-
-	// Need to add check for passpharse before populating snowUser struct
-	row := db.QueryRow(queryUserSQL, username)
-
-	// passing pointers, updates username, password variables
-	err := row.Scan(&username, &passwordHash)
+func (db *DbStore) selectUsernameByUsername(username string) (bool, error) {
+	// Prepare the SQL statement
+	stmt, err := db.Prepare("SELECT username FROM users WHERE username = ?")
 	if err != nil {
-		return &snowUser.User{}, err // TODO: Check for error when username or password does not match
+		return false, err
 	}
+	defer stmt.Close()
 
-	// build SnowUser struct
-	return &snowUser.User{
-		Username:   username,
-		Passpharse: passwordHash, // TODO: FileIndicator or something needs to of os.File
-	}, nil
-}
-
-func (db *DbStore) checkUsername(username string) (int, bool, error) {
-	var id int
-
-	if username == "" {
-		fmt.Println("Username is required")
-		os.Exit(1)
-	}
-
-	// Query for the username
-	row := db.QueryRow("SELECT id FROM users WHERE username = ?", username)
-
-	// Scan the result into the id variable
-	err := row.Scan(&id)
+	// Execute the query
+	err = stmt.QueryRow(username).Scan(&username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// Username not found
-			return 0, false, nil
-		}
-		// Some other error occurred
-		return 0, false, err
-	}
-
-	// Username found
-	return id, true, nil
-}
-
-func (db *DbStore) checkPasswordHash(userID int, providedHash []byte) (bool, error) {
-	var storedHash []byte
-
-	// Query for the password hash
-	err := db.QueryRow("SELECT password_hash FROM users WHERE id = ?", userID).Scan(&storedHash)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// User ID not found
+			// No result, but not necessarily an error
 			return false, nil
 		}
-		// Some other error occurred
 		return false, err
 	}
 
-	// Compare the provided hash with the stored hash
-	return bytes.Equal(storedHash, providedHash), nil
+	return true, nil
+}
+
+func (db *DbStore) getPasswordHashByID(id *snowUser.SnUUID) ([]byte, error) {
+	var passwordHash []byte
+	var byteArr []byte
+
+	byteArr, err := id.ToBytesInplace(byteArr)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `SELECT password_hash FROM users WHERE id = ?`
+	err = db.QueryRow(query, byteArr).Scan(&passwordHash)
+	if err != nil {
+		return nil, err
+	}
+	return passwordHash, nil
+}
+
+func (db *DbStore) getUserIDByUsername(username string) (*snowUser.SnUUID, error) {
+	var id []byte
+	var snUUID snowUser.SnUUID
+
+	query := `SELECT id FROM users WHERE username = ?`
+	err := db.QueryRow(query, username).Scan(&id)
+	if err != nil {
+		return &snowUser.SnUUID{}, err
+	}
+
+	snUUID, err = snowUser.SnUUID{}.FromBytes(id)
+	if err != nil {
+		return &snowUser.SnUUID{}, err
+	}
+
+	return &snUUID, nil
+}
+
+func isPassword(pwd, storedPwd []byte) error {
+	if err := bcrypt.CompareHashAndPassword(storedPwd, pwd); err != nil {
+		// TODO: nil pointer reference if incorrect password, see if can make a more detailed error
+		err = fmt.Errorf("were not in!: %v", err)
+		return err
+	}
+	return nil
+
+}
+
+func createHash(password []byte) ([]byte, error) {
+	var err error
+	var createdHash []byte
+
+	createdHash, err = bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdHash, err
 }

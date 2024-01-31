@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"golang.org/x/sys/windows/registry"
 )
@@ -10,51 +11,47 @@ type SN struct {
 	iconPath      string
 }
 
-func Create() SN {
-	// Set the file extension and the associated icon path
-	return SN{
+func Create() *SN {
+	return &SN{
 		fileExtension: ".sn",
 		iconPath:      "./registry/sn.ico",
 	}
 }
 
-func (s *SN) AddToRegistry() error {
-	var extKey registry.Key
-	var regError error
-
+func (s *SN) CreateRegistry() error {
 	// Create a key in the Registry for the .registry file extension
 	// located at HKEY_CLASSES_ROOT\.registry
-	extKey, _, regError = registry.CreateKey(registry.CLASSES_ROOT, s.fileExtension, registry.SET_VALUE)
-	if regError != nil {
-		regError = fmt.Errorf("Error with file key extension creation: %s ", regError)
+	extKey, _, err := registry.CreateKey(registry.CLASSES_ROOT, s.fileExtension, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("error with file key extension creation, please run as Admin: %s ", err)
 	}
+	defer extKey.Close()
 
 	// Sets the default value
-	regError = extKey.SetStringValue("", "snfile")
-	if regError != nil {
-		regError = fmt.Errorf("error with set snfile string value in registry: %s", regError)
+	if err = extKey.SetStringValue("", "snfile"); err != nil {
+		return fmt.Errorf("error with set snfile string value in registry: %s", err)
 	}
-	extKey.Close() // close extKey
 
-	key, err := s.addFileType()
+	fileTypeKey, err := addFileType()
 	if err != nil {
-		regError = fmt.Errorf("error for file type: %s", err)
+		return fmt.Errorf("error for file type: %s", err)
 	}
+	defer fileTypeKey.Close()
 
-	key, err = s.createKeyForFile(key)
+	defaultIconKey, err := createKeyForFile(fileTypeKey)
 	if err != nil {
-		regError = fmt.Errorf("error for DefaultIcon key: %s ", err)
+		return fmt.Errorf("error for DefaultIcon key: %s ", err)
 	}
-	err = s.addDefaultIcon(key)
-	if err != nil {
-		regError = fmt.Errorf("error for setting Icon path in registry %s", err)
+	defer defaultIconKey.Close()
+
+	if err = addDefaultIcon(defaultIconKey, s); err != nil {
+		return fmt.Errorf("error for setting Icon path in registry %s", err)
 	}
 
-	return regError
-
+	return nil
 }
 
-func (s *SN) addFileType() (*registry.Key, error) {
+func addFileType() (*registry.Key, error) {
 	fileTypeKey, _, err := registry.CreateKey(registry.CLASSES_ROOT, "snfile", registry.SET_VALUE)
 	if err != nil {
 		return nil, err
@@ -62,23 +59,35 @@ func (s *SN) addFileType() (*registry.Key, error) {
 	return &fileTypeKey, err
 }
 
-func (s *SN) createKeyForFile(fileTypeKey *registry.Key) (*registry.Key, error) {
+func createKeyForFile(fileTypeKey *registry.Key) (*registry.Key, error) {
 	// Create a DefaultIcon subkey located at HKEY_CLASSES_ROOT\snfile\DefaultIcon
 	defaultIconKey, _, err := registry.CreateKey(*fileTypeKey, "DefaultIcon", registry.SET_VALUE)
 	if err != nil {
 		return nil, err
 	}
-	defer fileTypeKey.Close()
 	return &defaultIconKey, err
 }
 
-func (s *SN) addDefaultIcon(defaultIconKey *registry.Key) (err error) {
+func addDefaultIcon(defaultIconKey *registry.Key, s *SN) error {
 	// Set the default icon path
-	err = defaultIconKey.SetStringValue("", s.iconPath)
+	return defaultIconKey.SetStringValue("", s.iconPath)
+}
+
+func (s *SN) DoesFileExtensionExist() (bool, error) {
+	var KeyNotFoundError = errors.New("key not found")
+
+	key, err := registry.OpenKey(registry.CLASSES_ROOT, s.fileExtension, registry.QUERY_VALUE)
+	defer key.Close()
+
 	if err != nil {
-		return err
+		if errors.Is(err, KeyNotFoundError) {
+			// The key does not exist
+			return false, nil
+		}
+		// There was some other error opening the key
+		return false, err
 	}
 
-	defer defaultIconKey.Close()
-	return err
+	// The key exists
+	return true, nil
 }

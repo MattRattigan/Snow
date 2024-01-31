@@ -2,24 +2,25 @@ package snFlags
 
 import "flag"
 
-func Flags() map[string]string {
-	cmdFlags := make(map[string]string)
+var CmdFlags = Flags()
 
-	//username flag
-	username := *flag.String("username", "", "Username for login")
+type Config struct {
+	Username string
+	FilePath string
+	DirPath  string
+	Encrypt  bool
+	Decrypt  bool
+}
 
-	// file flag
-	filePath := *flag.String("filepath", "", "Path to the file")
+func Flags() *Config {
+	var cfg Config
+	flag.StringVar(&cfg.Username, "username", "", "Username for login")
+	flag.StringVar(&cfg.FilePath, "filepath", "", "Path to the file")
+	flag.StringVar(&cfg.DirPath, "dirpath", "", "Path to the directory")
+	flag.BoolVar(&cfg.Encrypt, "e", false, "Encrypt file") // Changed to BoolVar
+	flag.BoolVar(&cfg.Decrypt, "d", false, "Decrypt file")
 
-	// directory flag
-	dirPath := *flag.String("dirpath", "", "Path to the directory")
-
-	// parse snFlags
 	flag.Parse()
 
-	cmdFlags["username"] = username
-	cmdFlags["filePath"] = filePath
-	cmdFlags["dirPath"] = dirPath
-
-	return cmdFlags
+	return &cfg
 }

@@ -1,67 +1,56 @@
 package main
 
 import (
-	"Snow/dbSnow"
+	db "Snow/dbSnow"
 	"Snow/registry"
+	"Snow/snFlags"
+	"Snow/sncrypt"
 	"Snow/snowUser"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
+	"log"
 	"os"
 )
 
 func main() {
-	db := dbSnow.DbStore{}
+	var dbstore = db.InitDB("data/snow_database.sqlite")
+	reg := registry.Create()
 
-	//snUser := &snowUser.User{}
-	//var filePath string
-	//var err error
-
-	//cmdFlags := snFlags()
-	//username := cmdFlags["flags1"]
-	//passpharse, err := snUser.SetUsername(*username).SetPasspharse()
-
-	//if err != nil {
-	//	_, _ = fmt.Fprintln(os.Stderr, err)
-	//}
-	//
-	//db := dbSnow.InitDB("users.dbSnow")
-	//defer db.Close()
-	//
-	//// TODO: Example of create (Delete or change later)
-	//err = db.CreateUser(snUser) // TODO: Create file path method
-	//
-	//if err != nil {
-	//	log.Fatal("Failed to create user:", err)
-	//}
-	//
-	//// TODO: Example of get (Delete of change later)
-	//user, err := db.GetUser("alice")
-	//
-	//if err != nil {
-	//	log.Fatal("Failed to retrieve user: ", err)
-	//}
-	//
-	//_ = filePath
-	//fmt.Println(user)
-	//
-	///// demonstration
-	//potato := sncrypt.Encrypt()
-
-	su, err := snowUser.CreateUser(&db)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "We have an error!")
+	if ok, err := reg.DoesFileExtensionExist(); !ok {
+		err = reg.CreateRegistry()
+		fmt.Println("Creating .sn extension")
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	_ = su
+	cmdFlags := snFlags.CmdFlags
+	username := snowUser.SetUsername(cmdFlags.Username)
+	password, err := snowUser.SetPassword()
 
-}
-
-func registryCode() {
-	sn := registry.Create()
-
-	err := sn.AddToRegistry()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
-	// Additional steps may be required to refresh the icon cache
+	snUser, err := dbstore.GetUser(username, password)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if snFlags.CmdFlags.Encrypt == false && snFlags.CmdFlags.Decrypt == false {
+		fmt.Println("no encryption option was chosen")
+	} else if snFlags.CmdFlags.Encrypt {
+		err = sncrypt.WriteEncryption(&snUser)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if snFlags.CmdFlags.Decrypt {
+		err = sncrypt.WriteDecryption(&snUser)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	fmt.Println("\nFinished!!!")
+
 }

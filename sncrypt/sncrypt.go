@@ -1,100 +1,109 @@
 package sncrypt
 
 import (
+	"Snow/snowUser"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
+	"golang.org/x/crypto/pbkdf2"
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 )
 
-func main() {
-	cwd, err := os.Getwd()
+func deriveKey(password []byte, salt []byte) []byte {
+	return pbkdf2.Key(password, salt, 10000, 32, sha256.New)
+}
+
+func WriteEncryption(user *snowUser.User) error {
+	bytes, err := encrypt(user)
+
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(user.GetPath(), bytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Finished!!!!!")
+	return nil
+}
 
-	relativePath := "/cmd/temp.txt"
-	fullPath := filepath.Join(cwd, relativePath)
-	fmt.Println(fullPath)
+func encrypt(user *snowUser.User) ([]byte, error) {
+	var salt []byte
 
-	passphrase := "your-password-here" // Use a secure method to generate a strong passphrase
+	saltyUUID, err := user.GetUUID().ToBytesInplace(salt)
 
-	// Read the file you want to encrypt
-	data, err := os.ReadFile(fullPath)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	// Encrypt the file
-	encryptedData := Encrypt(data, passphrase)
-	err = os.WriteFile(fullPath, encryptedData, 0644)
+	key := deriveKey(user.Passpharse, saltyUUID)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+	return gcm.Seal(nonce, nonce, user.GetData(), nil), nil
+}
+
+func WriteDecryption(user *snowUser.User) error {
+	bytes, err := decrypt(user)
+
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(user.GetPath(), bytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println("Finished!!!!!")
-
+	return nil
 }
 
-func Encrypt(data []byte, passphrase string) []byte {
-	// TODO: Check if the file in question
+func decrypt(user *snowUser.User) ([]byte, error) {
+	var salt []byte
 
-	// Ensure the passphrase is of a valid length (16, 24, 32 bytes)
-	key := []byte(passphrase)
-	switch len(passphrase) {
-	case 16, 24, 32: // Valid AES key lengths
-		// Key is already the correct length
-	default:
-		// Pad or trim the key to 32 bytes
-		key = padOrTrim([]byte(passphrase), 32)
+	saltyUUID, err := user.GetUUID().ToBytesInplace(salt)
+
+	if err != nil {
+		return nil, err
 	}
 
+	key := deriveKey(user.Passpharse, saltyUUID)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		log.Fatal(err)
-	}
-	return gcm.Seal(nonce, nonce, data, nil)
-}
 
-func padOrTrim(b []byte, size int) []byte {
-	if len(b) > size {
-		return b[:size]
-	}
-	padded := make([]byte, size)
-	copy(padded, b)
-	return padded
-}
-
-func Decrypt(data []byte, passphrase string) []byte {
-	block, err := aes.NewCipher([]byte(passphrase))
-	if err != nil {
-		log.Fatal(err)
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		log.Fatal(err)
-	}
+	data := user.GetData()
 	nonceSize := gcm.NonceSize()
+	if len(data) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return plaintext
-}
-
-func getFileLocation() {
-
+	return plaintext, nil
 }
