@@ -67,6 +67,7 @@ func (db *DbStore) GetUser(username string, password []byte) (snowUser.User, err
 		return snowUser.User{}, err
 	}
 
+	// validate users password
 	err = isPassword(password, storedPwd)
 	if err != nil {
 		return snowUser.User{}, err
@@ -78,6 +79,7 @@ func (db *DbStore) GetUser(username string, password []byte) (snowUser.User, err
 		return snowUser.User{}, err
 	}
 
+	// appending uuid to fileDir type
 	fileDir = snowUser.AppendUUID(fileDir, *id)
 
 	return snowUser.User{

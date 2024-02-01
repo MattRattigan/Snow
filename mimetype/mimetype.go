@@ -162,6 +162,11 @@ var mimeTypes = map[FileExtension]string{
 	DEY:     "application/vnd.android.dey",
 }
 
+//func (fm *FileMIME) RegisterNewType() {
+//	var txtType = filetype.NewType("txt", "text/plain")
+//
+//}
+
 func MIMEMap() *FileMIME {
 	return &FileMIME{mimeTypes}
 }
@@ -197,6 +202,11 @@ func (fm *FileMIME) GetExtensionFromMIME(mimeType string) string {
 	// account of jpeg
 	if extension == "jpeg" {
 		extension = "jpg"
+	}
+
+	// account of mpg
+	if extension == "mpeg" {
+		extension = "mpg"
 	}
 
 	// prepend the dot to form the file extension

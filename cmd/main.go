@@ -18,7 +18,7 @@ func main() {
 
 	if ok, err := reg.DoesFileExtensionExist(); !ok {
 		err = reg.CreateRegistry()
-		fmt.Println("Creating .sn extension")
+		fmt.Println("Created .sn extension")
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -1,6 +1,7 @@
 package sncrypt
 
 import (
+	"Snow/mimetype"
 	"Snow/snowUser"
 	"crypto/aes"
 	"crypto/cipher"
@@ -11,24 +12,60 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 func deriveKey(password []byte, salt []byte) []byte {
 	return pbkdf2.Key(password, salt, 10000, 32, sha256.New)
 }
 
+func snToFile(path string) string {
+	// check for original file type extension using MIMEType,
+	// creates file extension to later append to file path
+
+	var builder strings.Builder
+
+	// Splits the path based on . separator
+	parts := strings.Split(path, ".")
+
+	mime := mimetype.MIMEMap()
+	mimeStr, err := mime.CheckFileType(path)
+
+	if err != nil && mimeStr == "" {
+		return parts[0]
+	}
+
+	mimeStr = mime.GetExtensionFromMIME(mimeStr)
+	builder.WriteString(parts[0])
+	builder.WriteString(mimeStr)
+
+	return builder.String()
+}
+
+func fileToSn(path string) string {
+	// Splits filepath to later append the .sn extension to the file name
+	snExtension := ".sn"
+	parts := strings.Split(path, ".")
+	return parts[0] + snExtension
+}
+
 func WriteEncryption(user *snowUser.User) error {
 	bytes, err := encrypt(user)
-
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(user.GetPath(), bytes, 0644)
+	newPath := fileToSn(user.GetPath())
+
+	err = os.Rename(user.GetPath(), newPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(newPath, bytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Finished!!!!!")
 	return nil
 }
 
@@ -65,12 +102,17 @@ func WriteDecryption(user *snowUser.User) error {
 		return err
 	}
 
-	err = os.WriteFile(user.GetPath(), bytes, 0644)
+	newPath := snToFile(user.GetPath())
+
+	err = os.Rename(user.GetPath(), newPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(newPath, bytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("Finished!!!!!")
 	return nil
 }
 

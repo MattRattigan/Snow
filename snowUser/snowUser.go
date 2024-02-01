@@ -21,20 +21,23 @@ type User struct {
 type UserFile struct {
 	UUID     SnUUID
 	Data     []byte
+	FileExt  string
 	FilePath string
 }
 
 type UserDir struct {
 	UUID    SnUUID
 	Data    []byte
+	FileExt string
 	DirPath string
 }
 
 type FileDir interface {
 	GetUUID() SnUUID
-	GetData() []byte
 	GetPath() string
 	SetUUID(uuid SnUUID)
+	GetData() []byte
+	GetFileExt() string
 }
 
 func SetUsername(username string) string {
@@ -69,6 +72,20 @@ func SetPassword() ([]byte, error) {
 	return passwordBytes, nil
 }
 
+func (u UserFile) GetData() []byte {
+	data, err := os.ReadFile(u.GetPath())
+	if err != nil {
+		log.Fatal(err)
+	}
+	u.Data = data
+
+	return u.Data
+}
+
+func (u UserDir) GetData() []byte {
+	return u.Data
+}
+
 func CreateFileUUID() SnUUID {
 	return SnUUID{}.CreateUUID()
 }
@@ -98,7 +115,7 @@ func AppendUUID(f FileDir, uuid SnUUID) FileDir {
 	case *UserFile:
 		return &UserFile{
 			UUID:     uuid,
-			Data:     nil,
+			FileExt:  "",
 			FilePath: path,
 		}
 	case *UserDir:
@@ -112,6 +129,33 @@ func AppendUUID(f FileDir, uuid SnUUID) FileDir {
 	}
 }
 
+func AppendExt(f FileDir, extension string) (FileDir, error) {
+	switch f.(type) {
+	case *UserFile:
+		return &UserFile{
+			UUID:     f.GetUUID(),
+			FileExt:  extension,
+			FilePath: f.GetPath(),
+		}, nil
+	case *UserDir:
+		return &UserDir{
+			UUID:    f.GetUUID(),
+			FileExt: extension,
+			DirPath: f.GetPath(),
+		}, nil
+	default:
+		return nil, errors.New("unknown file type")
+	}
+}
+
+func (u UserFile) GetFileExt() string {
+	return u.FileExt
+}
+
+func (u UserDir) GetFileExt() string {
+	return u.FileExt
+}
+
 func (u UserFile) GetUUID() SnUUID {
 	return u.UUID
 }
@@ -120,26 +164,12 @@ func (u UserFile) SetUUID(userUUID SnUUID) {
 	u.UUID = userUUID
 }
 
-func (u UserFile) GetData() []byte {
-	data, err := os.ReadFile(u.GetPath())
-	if err != nil {
-		log.Fatal(err)
-	}
-	u.Data = data
-
-	return u.Data
-}
-
 func (u UserFile) GetPath() string {
 	return u.FilePath
 }
 
 func (u UserDir) GetUUID() SnUUID {
 	return u.UUID
-}
-
-func (u UserDir) GetData() []byte {
-	return u.Data
 }
 
 func (u UserDir) GetPath() string {
