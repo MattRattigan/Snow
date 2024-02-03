@@ -23,7 +23,9 @@ Windows Registry Integration: Registers custom file extensions for encrypted fil
     -ext: Name of the file extension. (must use if decrypting the file such as .txt) 
 
 ### Example
-<img src="https://drive.google.com/file/d/14pvz-hPhEv0Z6-ecdMxUC-5_DmT7vLRa/view?usp=sharing" alt="Alt text" width="300" />
+<div align="center">
+  <img src="[URL_to_GIF](https://drive.google.com/file/d/14pvz-hPhEv0Z6-ecdMxUC-5_DmT7vLRa/view?usp=sharing)" alt="Alt text" width="300" />
+</div>
 
 ### Notes
 Run the application with administrative privileges on Windows to modify the registry.
