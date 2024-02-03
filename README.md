@@ -24,7 +24,7 @@ Windows Registry Integration: Registers custom file extensions for encrypted fil
 
 ### Example
 <div align="center">
-  <img src="[URL_to_GIF](https://drive.google.com/file/d/14pvz-hPhEv0Z6-ecdMxUC-5_DmT7vLRa/view?usp=sharing)" alt="Alt text" width="300" />
+  <iframe src="https://drive.google.com/file/d/14pvz-hPhEv0Z6-ecdMxUC-5_DmT7vLRa/preview" width="640" height="480" allow="autoplay"></iframe>
 </div>
 
 ### Notes
