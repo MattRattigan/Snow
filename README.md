@@ -7,10 +7,10 @@
 
 ### Key Features
 
-    File Encryption and Decryption: Securely encrypts and decrypts files using AES-GCM algorithm.
-    User Management: Manages user data securely, leveraging SQLite for storage.
-    File Extension Handling: Dynamically handles file extensions during encryption/decryption processes.
-    Windows Registry Integration: Registers custom file extensions for encrypted files in the Windows Registry.
+File Encryption and Decryption: Securely encrypts and decrypts files using AES-GCM algorithm.
+User Management: Manages user data securely, leveraging SQLite for storage.
+File Extension Handling: Dynamically handles file extensions during encryption/decryption processes.
+Windows Registry Integration: Registers custom file extensions for encrypted files in the Windows Registry.
 
 ### Command-Line Flags
 
@@ -22,5 +22,5 @@
     -ext: Name of the file extension.
 
 ### Notes
-    Run the application with administrative privileges on Windows to modify the registry.
-    Tested on Windows and Ubuntu Linux
+Run the application with administrative privileges on Windows to modify the registry.
+Tested on Windows and Ubuntu Linux
