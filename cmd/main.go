@@ -19,7 +19,7 @@ func main() {
 			return "", err
 		}
 		execDir := filepath.Dir(execPath)
-		dbPath := filepath.Join(execDir, "data/snow_database.sqlite")
+		dbPath := filepath.Join(execDir, "dbSnow/data/snow_database.db")
 		return dbPath, nil
 	}
 
@@ -28,16 +28,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = setupPlatformSpecific()
-	if err != nil {
+	// Platform specific function calls main_windows or main_linux depending on environment
+	if err = setupPlatformSpecific(); err != nil {
 		log.Fatal(err)
+	}
+
+	if err = db.ExtractDatabase(dbpath); err != nil {
+		log.Fatalf("Failed to extract database: %v", err)
 	}
 
 	dbstore, err := db.InitDB(dbpath)
 
 	if err != nil {
-		e := fmt.Errorf("error in database init: %v\n", err)
-		log.Fatal(e)
+		log.Fatalf("error in database init: %v\n", err)
 	}
 
 	cmdFlags := snFlags.CmdFlags
