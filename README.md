@@ -1,4 +1,5 @@
-# Snow \<img src="https://github.com/MattRattigan/Snow/blob/master/snow.webp" alt="Alt text" width="300">\
+# Snow    
+<img src="https://github.com/MattRattigan/Snow/blob/master/snow.webp" alt="Alt text" width="300"> 
 
 ---
 ### Snow is is a Go-based software designed for file encryption and decryption, utilizing SQLite for data storage and management. 
