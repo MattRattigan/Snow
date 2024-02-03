@@ -3,7 +3,7 @@
 # Snow    
  
 ---
-### Snow is is a Go-based software designed for file encryption and decryption, utilizing SQLite for data storage and management. 
+### Snow is is a Go-based software designed for file encryption and decryption
 ---
 
 ### Key Features
