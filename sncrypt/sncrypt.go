@@ -2,6 +2,7 @@ package sncrypt
 
 import (
 	"Snow/mimetype"
+	"Snow/snFlags"
 	"Snow/snowUser"
 	"crypto/aes"
 	"crypto/cipher"
@@ -29,10 +30,13 @@ func snToFile(path string) string {
 	parts := strings.Split(path, ".")
 
 	mime := mimetype.MIMEMap()
-	mimeStr, err := mime.CheckFileType(path)
+	mimeStr, _ := mime.CheckFileType(path)
+	fmt.Println(mimeStr)
 
-	if err != nil && mimeStr == "" {
-		return parts[0]
+	if mimeStr == "" {
+		builder.WriteString(parts[0])
+		builder.WriteString(snFlags.CmdFlags.Ext)
+		return builder.String()
 	}
 
 	mimeStr = mime.GetExtensionFromMIME(mimeStr)

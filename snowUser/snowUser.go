@@ -35,9 +35,7 @@ type UserDir struct {
 type FileDir interface {
 	GetUUID() SnUUID
 	GetPath() string
-	SetUUID(uuid SnUUID)
 	GetData() []byte
-	GetFileExt() string
 }
 
 func SetUsername(username string) string {
@@ -129,39 +127,8 @@ func AppendUUID(f FileDir, uuid SnUUID) FileDir {
 	}
 }
 
-func AppendExt(f FileDir, extension string) (FileDir, error) {
-	switch f.(type) {
-	case *UserFile:
-		return &UserFile{
-			UUID:     f.GetUUID(),
-			FileExt:  extension,
-			FilePath: f.GetPath(),
-		}, nil
-	case *UserDir:
-		return &UserDir{
-			UUID:    f.GetUUID(),
-			FileExt: extension,
-			DirPath: f.GetPath(),
-		}, nil
-	default:
-		return nil, errors.New("unknown file type")
-	}
-}
-
-func (u UserFile) GetFileExt() string {
-	return u.FileExt
-}
-
-func (u UserDir) GetFileExt() string {
-	return u.FileExt
-}
-
 func (u UserFile) GetUUID() SnUUID {
 	return u.UUID
-}
-
-func (u UserFile) SetUUID(userUUID SnUUID) {
-	u.UUID = userUUID
 }
 
 func (u UserFile) GetPath() string {
@@ -174,10 +141,6 @@ func (u UserDir) GetUUID() SnUUID {
 
 func (u UserDir) GetPath() string {
 	return u.DirPath
-}
-
-func (u UserDir) SetUUID(userUUID SnUUID) {
-	u.UUID = userUUID
 }
 
 // FromBytes16 converts a [16]byte array to SnUUID
@@ -210,10 +173,6 @@ func (u SnUUID) CreateUUID() SnUUID {
 
 func (u SnUUID) String() string {
 	return uuid.UUID(u).String()
-}
-
-func (u SnUUID) ToBytes16() [16]byte {
-	return u
 }
 
 func (u SnUUID) ToBytesInplace(b []byte) ([]byte, error) {

@@ -162,11 +162,6 @@ var mimeTypes = map[FileExtension]string{
 	DEY:     "application/vnd.android.dey",
 }
 
-//func (fm *FileMIME) RegisterNewType() {
-//	var txtType = filetype.NewType("txt", "text/plain")
-//
-//}
-
 func MIMEMap() *FileMIME {
 	return &FileMIME{mimeTypes}
 }

@@ -3,8 +3,10 @@ package dbSnow
 import (
 	"Snow/snowUser"
 	"database/sql"
+	"path/filepath"
+
 	"fmt"
-	"log"
+	"os"
 	"sync"
 )
 
@@ -17,11 +19,23 @@ type DbStore struct {
 	*sql.DB
 }
 
-func InitDB(filepath string) *DbStore {
+func InitDB(filePath string) (*DbStore, error) {
+	var err error
 	once.Do(func() {
-		dbSnow, err := sql.Open("sqlite3", filepath)
-		if err != nil {
-			log.Fatal(err)
+		// Ensure the directory exists
+		dir := filepath.Dir(filePath)
+		if _, statErr := os.Stat(dir); os.IsNotExist(statErr) {
+			if mkErr := os.MkdirAll(dir, os.ModePerm); mkErr != nil {
+				err = mkErr
+				return
+			}
+		}
+
+		// Open or create the database
+		dbSnow, dbErr := sql.Open("sqlite3", filePath)
+		if dbErr != nil {
+			err = dbErr // Capture the error
+			return      // Exit the once.Do block
 		}
 
 		createTableSQL := `
@@ -31,14 +45,19 @@ func InitDB(filepath string) *DbStore {
 				"password_hash" BLOB NOT NULL
 			);`
 
-		_, err = dbSnow.Exec(createTableSQL)
-		if err != nil {
-			log.Fatal(err)
+		if _, dbErr = dbSnow.Exec(createTableSQL); dbErr != nil {
+			err = dbErr
+			return
 		}
 
 		dbStoreInstance = &DbStore{dbSnow}
 	})
-	return dbStoreInstance
+
+	// Return the error captured inside once.Do, if any
+	if err != nil {
+		return nil, err
+	}
+	return dbStoreInstance, nil
 }
 
 func (db *DbStore) GetUser(username string, password []byte) (snowUser.User, error) {

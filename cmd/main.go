@@ -2,7 +2,6 @@ package main
 
 import (
 	db "Snow/dbSnow"
-	"Snow/registry"
 	"Snow/snFlags"
 	"Snow/sncrypt"
 	"Snow/snowUser"
@@ -10,18 +9,35 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 func main() {
-	var dbstore = db.InitDB("data/snow_database.sqlite")
-	reg := registry.Create()
-
-	if ok, err := reg.DoesFileExtensionExist(); !ok {
-		err = reg.CreateRegistry()
-		fmt.Println("Created .sn extension")
+	path := func() (string, error) {
+		execPath, err := os.Executable()
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
+		execDir := filepath.Dir(execPath)
+		dbPath := filepath.Join(execDir, "data/snow_database.sqlite")
+		return dbPath, nil
+	}
+
+	dbpath, err := path()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = setupPlatformSpecific()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dbstore, err := db.InitDB(dbpath)
+
+	if err != nil {
+		e := fmt.Errorf("error in database init: %v\n", err)
+		log.Fatal(e)
 	}
 
 	cmdFlags := snFlags.CmdFlags
@@ -38,7 +54,9 @@ func main() {
 	}
 
 	if snFlags.CmdFlags.Encrypt == false && snFlags.CmdFlags.Decrypt == false {
-		fmt.Println("no encryption option was chosen")
+		log.Fatal("no encryption option was chosen")
+	} else if snFlags.CmdFlags.Ext == "" && snFlags.CmdFlags.Decrypt == true {
+		log.Fatal("no file extension was given with -d flag")
 	} else if snFlags.CmdFlags.Encrypt {
 		err = sncrypt.WriteEncryption(&snUser)
 		if err != nil {

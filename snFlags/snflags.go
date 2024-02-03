@@ -10,6 +10,7 @@ type Config struct {
 	DirPath  string
 	Encrypt  bool
 	Decrypt  bool
+	Ext      string
 }
 
 func Flags() *Config {
@@ -19,6 +20,7 @@ func Flags() *Config {
 	flag.StringVar(&cfg.DirPath, "dirpath", "", "Path to the directory")
 	flag.BoolVar(&cfg.Encrypt, "e", false, "Encrypt file") // Changed to BoolVar
 	flag.BoolVar(&cfg.Decrypt, "d", false, "Decrypt file")
+	flag.StringVar(&cfg.Ext, "ext", "", "name of file extension")
 
 	flag.Parse()
 

@@ -1,8 +1,12 @@
+//go:build windows
+
 package registry
 
 import (
 	"fmt"
 	"golang.org/x/sys/windows/registry"
+	"os"
+	"path/filepath"
 )
 
 type SN struct {
@@ -10,11 +14,15 @@ type SN struct {
 	iconPath      string
 }
 
-func Create() *SN {
+func Create() (*SN, error) {
+	iconPath, err := getIconPath()
+	if err != nil {
+		return nil, err
+	}
 	return &SN{
 		fileExtension: ".sn",
-		iconPath:      "./registry/sn.ico",
-	}
+		iconPath:      iconPath,
+	}, nil
 }
 
 func (s *SN) CreateRegistry() error {
@@ -48,4 +56,16 @@ func (s *SN) CreateRegistry() error {
 	}
 
 	return nil
+}
+
+func getIconPath() (string, error) {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	execDir := filepath.Dir(execPath)
+
+	// sn.ico is located in the same directory as the executable
+	iconPath := filepath.Join(execDir, "sn.ico")
+	return iconPath, nil
 }
