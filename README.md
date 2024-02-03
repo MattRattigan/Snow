@@ -20,7 +20,7 @@ Windows Registry Integration: Registers custom file extensions for encrypted fil
     -dirpath: Path to the directory.
     -e: Encrypt file.
     -d: Decrypt file.
-    -ext: Name of the file extension.
+    -ext: Name of the file extension. (must use if decrypting the file such as .txt) 
 
 ### Notes
 Run the application with administrative privileges on Windows to modify the registry.
