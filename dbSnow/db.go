@@ -3,12 +3,16 @@ package dbSnow
 import (
 	"Snow/snowUser"
 	"database/sql"
-	"path/filepath"
-
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 )
+
+//go:embed data/snow_database.db
+var embeddedDB embed.FS
 
 var (
 	once            sync.Once
@@ -19,18 +23,32 @@ type DbStore struct {
 	*sql.DB
 }
 
+func ExtractDatabase(targetPath string) error {
+	// Check if the database file already exists
+	if _, err := os.Stat(targetPath); err == nil {
+		// File already exists, no need to extract
+		return nil
+	}
+
+	// File doesn't exist, extract it from embedded resources
+	data, readErr := fs.ReadFile(embeddedDB, "data/snow_database.db")
+	if readErr != nil {
+		return readErr
+	}
+
+	// Ensure the directory exists
+	dir := filepath.Dir(targetPath)
+	if mkErr := os.MkdirAll(dir, os.ModePerm); mkErr != nil {
+		return mkErr
+	}
+
+	// Write the data to the target path with appropriate file permissions
+	return os.WriteFile(targetPath, data, 0600)
+}
+
 func InitDB(filePath string) (*DbStore, error) {
 	var err error
 	once.Do(func() {
-		// Ensure the directory exists
-		dir := filepath.Dir(filePath)
-		if _, statErr := os.Stat(dir); os.IsNotExist(statErr) {
-			if mkErr := os.MkdirAll(dir, os.ModePerm); mkErr != nil {
-				err = mkErr
-				return
-			}
-		}
-
 		// Open or create the database
 		dbSnow, dbErr := sql.Open("sqlite3", filePath)
 		if dbErr != nil {
@@ -53,7 +71,6 @@ func InitDB(filePath string) (*DbStore, error) {
 		dbStoreInstance = &DbStore{dbSnow}
 	})
 
-	// Return the error captured inside once.Do, if any
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +80,7 @@ func InitDB(filePath string) (*DbStore, error) {
 func (db *DbStore) GetUser(username string, password []byte) (snowUser.User, error) {
 	// Get ID and password from database, check password and populate the struct
 
-	// If user is in database procede to getUser if not create user
+	// If user is in database proceed to getUser if not create user
 	if ok, err := db.selectUsernameByUsername(username); err != nil {
 		return snowUser.User{}, err
 	} else if !ok {
