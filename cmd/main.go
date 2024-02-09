@@ -9,18 +9,43 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
+	usr "os/user"
 	"path/filepath"
+	"runtime"
 )
 
 func main() {
-	path := func() (string, error) {
-		execPath, err := os.Executable()
-		if err != nil {
-			return "", err
+	// Platform specific function calls main_windows or main_linux depending on environment
+	if errChan := <-setupPlatformSpecific(); errChan != nil {
+		log.Fatal(errChan)
+	}
+
+	ch := make(chan string)
+
+	go func() {
+		switch runtime.GOOS {
+		case "windows":
+			ch <- os.Getenv("LOCALAPPDATA")
+		case "linux":
+			userPath, err := usr.Current()
+			if err != nil {
+				log.Fatal(err)
+			}
+			ch <- filepath.Join(userPath.HomeDir, ".local", "bin")
 		}
-		execDir := filepath.Dir(execPath)
-		dbPath := filepath.Join(execDir, "dbSnow/data/snow_database.db")
-		return dbPath, nil
+	}()
+
+	path := func() (string, error) {
+		defer close(ch)
+		dbpath := filepath.Join(<-ch, "Snow")
+		if _, err := os.Stat(dbpath); os.IsNotExist(err) {
+			// MKdirAll makes the Snow directory
+			err = os.MkdirAll(dbpath, 0700)
+			if err != nil {
+				return "", err
+			}
+		}
+		return dbpath, nil
 	}
 
 	dbpath, err := path()
@@ -28,15 +53,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Platform specific function calls main_windows or main_linux depending on environment
-	if err = setupPlatformSpecific(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err = db.ExtractDatabase(dbpath); err != nil {
-		log.Fatalf("Failed to extract database: %v", err)
-	}
-
+	// File path for snow.db is appended to the created or existing database
+	dbpath = filepath.Join(dbpath, "Snow.db")
 	dbstore, err := db.InitDB(dbpath)
 
 	if err != nil {

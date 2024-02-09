@@ -3,16 +3,9 @@ package dbSnow
 import (
 	"Snow/snowUser"
 	"database/sql"
-	"embed"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"sync"
 )
-
-//go:embed data/snow_database.db
-var embeddedDB embed.FS
 
 var (
 	once            sync.Once
@@ -21,29 +14,6 @@ var (
 
 type DbStore struct {
 	*sql.DB
-}
-
-func ExtractDatabase(targetPath string) error {
-	// Check if the database file already exists
-	if _, err := os.Stat(targetPath); err == nil {
-		// File already exists, no need to extract
-		return nil
-	}
-
-	// File doesn't exist, extract it from embedded resources
-	data, readErr := fs.ReadFile(embeddedDB, "data/snow_database.db")
-	if readErr != nil {
-		return readErr
-	}
-
-	// Ensure the directory exists
-	dir := filepath.Dir(targetPath)
-	if mkErr := os.MkdirAll(dir, os.ModePerm); mkErr != nil {
-		return mkErr
-	}
-
-	// Write the data to the target path with appropriate file permissions
-	return os.WriteFile(targetPath, data, 0600)
 }
 
 func InitDB(filePath string) (*DbStore, error) {
@@ -55,7 +25,6 @@ func InitDB(filePath string) (*DbStore, error) {
 			err = dbErr // Capture the error
 			return      // Exit the once.Do block
 		}
-
 		createTableSQL := `
 			CREATE TABLE IF NOT EXISTS users (
 				"id" BLOB PRIMARY KEY,

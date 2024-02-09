@@ -61,7 +61,7 @@ func (s *SN) CreateRegistry() error {
 func getIconPath() (string, error) {
 	execPath, err := os.Executable()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("with executable path: %s", err)
 	}
 	execDir := filepath.Dir(execPath)
 

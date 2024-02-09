@@ -41,7 +41,7 @@ func (s *SN) DoesFileExtensionExist() (bool, error) {
 			return false, nil
 		}
 		// There was some other error opening the key
-		return false, err
+		return false, errors.New("error opening the key")
 	}
 
 	// The key exists

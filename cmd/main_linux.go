@@ -2,6 +2,8 @@
 
 package main
 
-func setupPlatformSpecific() error {
-	return nil
+func setupPlatformSpecific() <-chan error {
+	ch := make(chan error)
+	defer close(ch)
+	return ch
 }
