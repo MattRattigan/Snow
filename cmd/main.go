@@ -16,9 +16,7 @@ import (
 
 func main() {
 	// Platform specific function calls main_windows or main_linux depending on environment
-	if errChan := <-setupPlatformSpecific(); errChan != nil {
-		log.Fatal(errChan)
-	}
+	go setupPlatformSpecific()
 
 	ch := make(chan string)
 
